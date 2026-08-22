@@ -30,11 +30,8 @@ jobs:
         accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         preCommands: |
           npm install -g wrangler
-          DB_ID=$(wrangler d1 list --json | jq -r '.[] | select(.name=="warp-db") | .uuid')
-          if [ -z "$DB_ID" ]; then
-            wrangler d1 create warp-db
-          fi
-          sed -i -e "s/4ca7dbc7-74ff-42be-9f86-965dfed62ad7/$(wrangler d1 list --json | jq -r '.[] | select(.name=="warp-db") | .uuid')/g" wrangler.toml
+          [ -n "$(wrangler d1 list --json | jq -r '.[] | select(.name=="warp-db") | .uuid' | tr -d '\n"')" ] || wrangler d1 create warp-db
+          sed -i -e "s/4ca7dbc7-74ff-42be-9f86-965dfed62ad7/$(wrangler d1 list --json | jq -r '.[] | select(.name=="warp-db") | .uuid' | tr -d '\n"')/g" wrangler.toml
         postCommands: |
           wrangler d1 execute warp-db --file=./schema.sql
         secrets: |
