@@ -25,7 +25,9 @@ jobs:
         node-version: 22
         cache: pnpm
     - name: Install dependencies
-      run: pnpm install --config.onlyBuiltDependencies=esbuild,workerd,sharp
+      run: |
+        pnpm config set onlyBuiltDependencies "esbuild,workerd,sharp" --location project
+        pnpm install
     - uses: awalsh128/cache-apt-pkgs-action@latest
       with:
         packages: jq
