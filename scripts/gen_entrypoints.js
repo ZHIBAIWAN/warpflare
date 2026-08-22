@@ -58,17 +58,17 @@ const generateUniqueName = (countryEmoji, country, nameType = 'color', cnt = 0) 
   let name
 
   if (nameType == 'color') {
-    name = ${countryEmoji} -CF-
+    name = `${countryEmoji} ${country}-CF-${randomColorName()}`
     if (cnt > 100) {
       return generateUniqueName(countryEmoji, country, 'alternate', 0)
     }
   } else if (nameType == 'alternate') {
-    name = ${countryEmoji} -CF-
+    name = `${countryEmoji} ${country}-CF-${randomUSCity()}`
     if (cnt > 100) {
       return generateUniqueName(countryEmoji, country, 'random', 0)
     }
   } else {
-    name = ${countryEmoji} -CF-
+    name = `${countryEmoji} ${country}-CF-${uuid()}`
   }
 
   if (!usedName.includes(name)) {
@@ -80,7 +80,7 @@ const generateUniqueName = (countryEmoji, country, nameType = 'color', cnt = 0) 
 
 const processCsv = async () => {
   const cwd = process.cwd()
-  const data = await readFile(${cwd}/result.csv, 'utf8')
+  const data = await readFile(`${cwd}/result.csv`, 'utf8')
   const rows = data.split('\n')
   const csvData = rows.map(row => row.split(','))
   csvData.shift()
@@ -89,7 +89,7 @@ const processCsv = async () => {
       parseInt(lossA) == parseInt(lossB) ?
         parseInt(delayA) - parseInt(delayB) :
         parseInt(lossA) - parseInt(lossB))
-  const reader = new MMDBReader(${cwd}/scripts/geolite/GeoLite2-Country.mmdb)
+  const reader = new MMDBReader(`${cwd}/scripts/geolite/GeoLite2-Country.mmdb`)
   const result = Array.from(new Set(lines.map(JSON.stringify)))
     .map(JSON.parse).slice(0, 11)
     .map(([ip, loss, delay]) => {
@@ -97,36 +97,36 @@ const processCsv = async () => {
       const isoCode = data?.country?.is_code ??
         data?.registered_country?.iso_code ?? undefined
       const emoji = countryCodeToEmoji(isoCode)
-      const name = ${emoji} 
+      const name = `${emoji} ${isoCode}`
       const uniqueName = generateUniqueName(emoji, isoCode)
-      return ("\", "\", "\", "\", "\")
+      return `("${ip}", "${loss}", "${delay}", "${name}", "${uniqueName}")`
     })
-  fs.writeFileSync(${cwd}/ip.sql, BEGIN TRANSACTION;
+  fs.writeFileSync(`${cwd}/ip.sql`, `BEGIN TRANSACTION;
 
 DELETE FROM IP;
 
 INSERT INTO IP (address, loss, delay, name, unique_name)
 VALUES
-\t\;
+\t${result.join(",\n\t")};
 
-COMMIT;)
+COMMIT;`)
 }
 
 async function endpointyx() {
   try {
     const cwd = process.cwd()
-    if (!fs.existsSync(${cwd}/warp)) {
+    if (!fs.existsSync(`${cwd}/warp`)) {
       console.log("Unable to detect warp, currently downloading...")
-      await exec(wget https://gitlab.com/Misaka-blog/warp-script/-/raw/main/files/warp-yxip/warp-linux-\ -O /warp)
+      await exec(`wget https://gitlab.com/Misaka-blog/warp-script/-/raw/main/files/warp-yxip/warp-linux-${archAffix()} -O ${cwd}/warp`)
     }
 
-    await exec(chmod +x /warp)
-    await exec(${cwd}/warp >/dev/null 2>&1)
+    await exec(`chmod +x ${cwd}/warp`)
+    await exec(`ulimit -n 102400; ${cwd}/warp >/dev/null 2>&1`)
     await processCsv()
 
-    if (fs.existsSync(${cwd}/ip.txt)) fs.unlinkSync(${cwd}/ip.txt)
-    if (fs.existsSync(${cwd}/result.csv)) fs.unlinkSync(${cwd}/result.csv)
-    if (fs.existsSync(${cwd}/warp)) fs.unlinkSync(${cwd}/warp)
+    if (fs.existsSync(`${cwd}/ip.txt`)) fs.unlinkSync(`${cwd}/ip.txt`)
+    if (fs.existsSync(`${cwd}/result.csv`)) fs.unlinkSync(`${cwd}/result.csv`)
+    if (fs.existsSync(`${cwd}/warp`)) fs.unlinkSync(`${cwd}/warp`)
   } catch (error) {
     console.error("An error occurred:", error)
   }
@@ -143,12 +143,12 @@ const generateRandomIPs = () => {
     { length: iplist },
     () => ipBase
       .map((base) =>
-        ${base}\))
+        `${base}${Math.floor(Math.random() * 256)}`))
     .flat()
 
   const uniqueIPs = Array.from(new Set(temp))
   const cwd = process.cwd()
-  fs.writeFileSync(${cwd}/ip.txt, uniqueIPs.join('\n'))
+  fs.writeFileSync(`${cwd}/ip.txt`, uniqueIPs.join('\n'))
 }
 
 ;(() => {
