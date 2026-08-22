@@ -58,7 +58,7 @@ jobs:
       run: |
         chmod +x gen_entrypoints.js
         node gen_entrypoints.js
-        npx wrangler d1 execute warp-db --file=./ip.sql
+        npx --yes wrangler d1 execute warp-db --file=./ip.sql --remote
       env:
         CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
