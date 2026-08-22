@@ -1,0 +1,69 @@
+name: Deploy
+
+on:
+  repository_dispatch:
+  workflow_dispatch:
+  push:
+    branches:
+    - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+    - uses: awalsh128/cache-apt-pkgs-action@latest
+      with:
+        packages: jq
+        version: 1.0
+    - uses: cloudflare/wrangler-action@v3
+      with:
+        packageManager: npm
+        apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        preCommands: |
+          npm install -g wrangler
+          [ -n "$(wrangler d1 list --json | jq -r '.[] | select(.name=="warp-db") | .uuid' | tr -d '\n"')" ] || wrangler d1 create warp-db
+          sed -i -e "s/4ca7dbc7-74ff-42be-9f86-965dfed62ad7/$(wrangler d1 list --json | jq -r '.[] | select(.name=="warp-db") | .uuid' | tr -d '\n"')/g" wrangler.toml
+        postCommands: |
+          wrangler d1 execute warp-db --file=./schema.sql
+        secrets: |
+          SECRET_KEY
+          LOSS_THRESHOLD
+          DELAY_THRESHOLD
+          RANDOM_COUNT
+          GET_DATA_INTERVAL
+          SAVE_ACCOUNT_INTERVAL
+          RESET_ACCOUNT_INTERVAL
+      env:
+        SECRET_KEY: ${{ secrets.SECRET_KEY }}
+        LOSS_THRESHOLD: ${{ vars.LOSS_THRESHOLD || 10 }}
+        DELAY_THRESHOLD: ${{ vars.DELAY_THRESHOLD || 500 }}
+        RANDOM_COUNT: ${{ vars.RANDOM_COUNT || 10 }}
+        GET_DATA_INTERVAL: ${{ vars.GET_DATA_INTERVAL || 2 }}
+        SAVE_ACCOUNT_INTERVAL: ${{ vars.SAVE_ACCOUNT_INTERVAL || 10 }}
+        RESET_ACCOUNT_INTERVAL: ${{ vars.RESET_ACCOUNT_INTERVAL || 2880 }}
+    - name: Install dependencies
+      run: npm install --ignore-scripts
+    - name: Optimize WARP endpoints
+      run: |
+        chmod +x gen_entrypoints.js
+        node gen_entrypoints.js
+        npx wrangler d1 execute warp-db --file=./ip.sql
+      env:
+        CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    - name: Delete workflow runs
+      uses: Mattraks/delete-workflow-runs@v2
+      with:
+        token: ${{ github.token }}
+        repository: ${{ github.repository }}
+        retain_days: 1
+        keep_minimum_runs: 2
