@@ -1,4 +1,5 @@
 name: Deploy
+# Auto-triggered
 
 on:
   repository_dispatch:
