@@ -30,7 +30,7 @@ const countryCodeToEmoji = countryCode => {
     return '🌏'
   }
 
-  const OFFSET = 127397 // Offset for regional indicator symbol
+  const OFFSET = 127397
   const firstLetter = String.fromCodePoint(
     countryCode.toUpperCase().charCodeAt(0) + OFFSET)
   const secondLetter = String.fromCodePoint(
@@ -58,17 +58,17 @@ const generateUniqueName = (countryEmoji, country, nameType = 'color', cnt = 0) 
   let name
 
   if (nameType == 'color') {
-    name = `${countryEmoji} ${country}-CF-${randomColorName()}`
+    name = ${countryEmoji} -CF-
     if (cnt > 100) {
       return generateUniqueName(countryEmoji, country, 'alternate', 0)
     }
   } else if (nameType == 'alternate') {
-    name = `${countryEmoji} ${country}-CF-${randomUSCity()}`
+    name = ${countryEmoji} -CF-
     if (cnt > 100) {
       return generateUniqueName(countryEmoji, country, 'random', 0)
     }
   } else {
-    name = `${countryEmoji} ${country}-CF-${uuid()}` // Use UUID to ensure uniqueness
+    name = ${countryEmoji} -CF-
   }
 
   if (!usedName.includes(name)) {
@@ -80,16 +80,16 @@ const generateUniqueName = (countryEmoji, country, nameType = 'color', cnt = 0) 
 
 const processCsv = async () => {
   const cwd = process.cwd()
-  const data = await readFile(`${cwd}/result.csv`, 'utf8')
+  const data = await readFile(${cwd}/result.csv, 'utf8')
   const rows = data.split('\n')
   const csvData = rows.map(row => row.split(','))
-  csvData.shift() // remove the header
+  csvData.shift()
   const lines = csvData.filter(([_ip, _loss, delay]) => delay != 'timeout ms')
     .sort(([_ipA, lossA, delayA], [_ipB, lossB, delayB]) =>
       parseInt(lossA) == parseInt(lossB) ?
         parseInt(delayA) - parseInt(delayB) :
         parseInt(lossA) - parseInt(lossB))
-  const reader = new MMDBReader(`${cwd}/scripts/geolite/GeoLite2-Country.mmdb`)
+  const reader = new MMDBReader(${cwd}/scripts/geolite/GeoLite2-Country.mmdb)
   const result = Array.from(new Set(lines.map(JSON.stringify)))
     .map(JSON.parse).slice(0, 11)
     .map(([ip, loss, delay]) => {
@@ -97,36 +97,36 @@ const processCsv = async () => {
       const isoCode = data?.country?.is_code ??
         data?.registered_country?.iso_code ?? undefined
       const emoji = countryCodeToEmoji(isoCode)
-      const name = `${emoji} ${isoCode}`
+      const name = ${emoji} 
       const uniqueName = generateUniqueName(emoji, isoCode)
-      return `("${ip}", "${loss}", "${delay}", "${name}", "${uniqueName}")`
+      return ("\", "\", "\", "\", "\")
     })
-  fs.writeFileSync(`${cwd}/ip.sql`, `BEGIN TRANSACTION;
+  fs.writeFileSync(${cwd}/ip.sql, BEGIN TRANSACTION;
 
 DELETE FROM IP;
 
 INSERT INTO IP (address, loss, delay, name, unique_name)
 VALUES
-\t${result.join(",\n\t")};
+\t\;
 
-COMMIT;`)
+COMMIT;)
 }
 
 async function endpointyx() {
   try {
     const cwd = process.cwd()
-    if (!fs.existsSync(`${cwd}/warp`)) {
+    if (!fs.existsSync(${cwd}/warp)) {
       console.log("Unable to detect warp, currently downloading...")
-      await exec(`wget https://gitlab.com/Misaka-blog/warp-script/-/raw/main/files/warp-yxip/warp-linux-${archAffix()} -O ${cwd}/warp`)
+      await exec(wget https://gitlab.com/Misaka-blog/warp-script/-/raw/main/files/warp-yxip/warp-linux-\ -O /warp)
     }
 
-    await exec(`sudo chmod +x ${cwd}/warp`)
-    await exec('sudo ulimit -n 102400')
-    await exec(`sudo ${cwd}/warp >/dev/null 2>&1`)
+    await exec(chmod +x /warp)
+    await exec(${cwd}/warp >/dev/null 2>&1)
     await processCsv()
 
-    fs.unlinkSync(`${cwd}/ip.txt`)
-    fs.unlinkSync(`${cwd}/result.csv`)
+    if (fs.existsSync(${cwd}/ip.txt)) fs.unlinkSync(${cwd}/ip.txt)
+    if (fs.existsSync(${cwd}/result.csv)) fs.unlinkSync(${cwd}/result.csv)
+    if (fs.existsSync(${cwd}/warp)) fs.unlinkSync(${cwd}/warp)
   } catch (error) {
     console.error("An error occurred:", error)
   }
@@ -139,21 +139,19 @@ const generateRandomIPs = () => {
     "188.114.96.", "188.114.97.", "188.114.98.", "188.114.99.",
   ]
 
-
   const temp = Array.from(
     { length: iplist },
     () => ipBase
       .map((base) =>
-        `${base}${Math.floor(Math.random() * 256)}`))
+        ${base}\))
     .flat()
 
   const uniqueIPs = Array.from(new Set(temp))
   const cwd = process.cwd()
-  fs.writeFileSync(`${cwd}/ip.txt`, uniqueIPs.join('\n'))
+  fs.writeFileSync(${cwd}/ip.txt, uniqueIPs.join('\n'))
 }
 
-(() => {
+;(() => {
   generateRandomIPs()
   Promise.all([endpointyx()])
 })()
-
