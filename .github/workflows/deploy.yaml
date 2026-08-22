@@ -1,5 +1,4 @@
 name: Deploy
-# Auto-triggered
 
 on:
   repository_dispatch:
@@ -20,8 +19,13 @@ jobs:
       with:
           version: latest
           run_install: false
-    - name: Fix pnpm build permissions
-      run: pnpm approve-builds
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: pnpm
+    - name: Install dependencies
+      run: pnpm install
     - uses: awalsh128/cache-apt-pkgs-action@latest
       with:
         packages: jq
@@ -32,12 +36,13 @@ jobs:
         apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         preCommands: |
-          # Check if database is created
           npm install -g wrangler
-          [ -n "$(wrangler d1 list --json | jq '.[] | select(.name=="warp-db") | .uuid' | tr -d '\n"')" ] || wrangler d1 create warp-db
-          sed -i -e "s/4ca7dbc7-74ff-42be-9f86-965dfed62ad7/$(wrangler d1 list --json | jq '.[] | select(.name=="warp-db") | .uuid' | tr -d '\n"')/g" wrangler.toml
+          DB_ID=
+          if [ -z "" ]; then
+            wrangler d1 create warp-db
+          fi
+          sed -i -e "s/4ca7dbc7-74ff-42be-9f86-965dfed62ad7//g" wrangler.toml
         postCommands: |
-          # Create sqlite tables if not exists
           wrangler d1 execute warp-db --file=./schema.sql
         secrets: |
           SECRET_KEY
@@ -55,6 +60,11 @@ jobs:
         GET_DATA_INTERVAL: ${{ vars.GET_DATA_INTERVAL || 2 }}
         SAVE_ACCOUNT_INTERVAL: ${{ vars.SAVE_ACCOUNT_INTERVAL || 10 }}
         RESET_ACCOUNT_INTERVAL: ${{ vars.RESET_ACCOUNT_INTERVAL || 2880 }}
+    - name: Optimize WARP endpoints
+      run: pnpm optimize
+      env:
+        CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
     - name: Delete workflow runs
       uses: Mattraks/delete-workflow-runs@v2
       with:
@@ -62,5 +72,3 @@ jobs:
         repository: ${{ github.repository }}
         retain_days: 1
         keep_minimum_runs: 2
-
-
