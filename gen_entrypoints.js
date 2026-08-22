@@ -78,6 +78,25 @@ const generateUniqueName = (countryEmoji, country, nameType = 'color', cnt = 0) 
   return generateUniqueName(countryEmoji, country, nameType, cnt + 1)
 }
 
+const ensureMmdb = async () => {
+  const cwd = process.cwd()
+  const mmdbPath = `${cwd}/scripts/geolite/GeoLite2-Country.mmdb`
+
+  if (!fs.existsSync(mmdbPath)) {
+    console.log("MMDB file not found, downloading...")
+    await exec(`wget -q "https://gitlab.com/P3TERX/GeoLite.mmdb/-/raw/download/GeoLite2-Country.mmdb" -O "${mmdbPath}"`)
+    return
+  }
+
+  const header = fs.readFileSync(mmdbPath, {encoding: 'utf8', flag: 'r'}).slice(0, 100)
+  if (header.includes('git-lfs') || header.includes('version https')) {
+    console.log("MMDB file is a Git LFS pointer, downloading real file...")
+    await exec(`wget -q "https://gitlab.com/P3TERX/GeoLite.mmdb/-/raw/download/GeoLite2-Country.mmdb" -O "${mmdbPath}"`)
+  } else {
+    console.log("MMDB file is valid")
+  }
+}
+
 const processCsv = async () => {
   const cwd = process.cwd()
   const data = await readFile(`${cwd}/result.csv`, 'utf8')
@@ -89,16 +108,30 @@ const processCsv = async () => {
       parseInt(lossA) == parseInt(lossB) ?
         parseInt(delayA) - parseInt(delayB) :
         parseInt(lossA) - parseInt(lossB))
-  const reader = new MMDBReader(`${cwd}/scripts/geolite/GeoLite2-Country.mmdb`)
+
+  let reader
+  try {
+    reader = new MMDBReader(`${cwd}/scripts/geolite/GeoLite2-Country.mmdb`)
+  } catch (e) {
+    console.log("MMDB load failed, downloading fresh copy...")
+    await exec(`wget -q "https://gitlab.com/P3TERX/GeoLite.mmdb/-/raw/download/GeoLite2-Country.mmdb" -O "${cwd}/scripts/geolite/GeoLite2-Country.mmdb"`)
+    reader = new MMDBReader(`${cwd}/scripts/geolite/GeoLite2-Country.mmdb`)
+  }
+
   const result = Array.from(new Set(lines.map(JSON.stringify)))
     .map(JSON.parse).slice(0, 11)
     .map(([ip, loss, delay]) => {
-      const data = reader.lookup(ip.split(":")[0])
-      const isoCode = data?.country?.is_code ??
-        data?.registered_country?.iso_code ?? undefined
+      let isoCode
+      try {
+        const geoData = reader.lookup(ip.split(":")[0])
+        isoCode = geoData?.country?.is_code ??
+          geoData?.registered_country?.iso_code ?? undefined
+      } catch (e) {
+        isoCode = undefined
+      }
       const emoji = countryCodeToEmoji(isoCode)
-      const name = `${emoji} ${isoCode}`
-      const uniqueName = generateUniqueName(emoji, isoCode)
+      const name = isoCode ? `${emoji} ${isoCode}` : `${emoji} Unknown`
+      const uniqueName = generateUniqueName(emoji, isoCode || 'UN')
       return `("${ip}", "${loss}", "${delay}", "${name}", "${uniqueName}")`
     })
   fs.writeFileSync(`${cwd}/ip.sql`, `BEGIN TRANSACTION;
@@ -127,6 +160,7 @@ async function endpointyx() {
         console.log("warp direct run failed, trying without ulimit...")
         await exec(`${cwd}/warp`)
       }
+    await ensureMmdb()
     await processCsv()
 
     if (fs.existsSync(`${cwd}/ip.txt`)) fs.unlinkSync(`${cwd}/ip.txt`)
