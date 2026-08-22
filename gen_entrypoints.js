@@ -134,15 +134,11 @@ const processCsv = async () => {
       const uniqueName = generateUniqueName(emoji, isoCode || 'UN')
       return `("${ip}", "${loss}", "${delay}", "${name}", "${uniqueName}")`
     })
-  fs.writeFileSync(`${cwd}/ip.sql`, `BEGIN TRANSACTION;
-
-DELETE FROM IP;
+  fs.writeFileSync(`${cwd}/ip.sql`, `DELETE FROM IP;
 
 INSERT INTO IP (address, loss, delay, name, unique_name)
 VALUES
-\t${result.join(",\n\t")};
-
-COMMIT;`)
+\t${result.join(",\n\t")};`)
 }
 
 async function endpointyx() {
